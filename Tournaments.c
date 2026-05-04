@@ -43,8 +43,12 @@ int main(int argc, char **argv)
 
 	//dataSet data;
 
-	dataSet* data = create_instance(4,"tournament1.csv");
-	solve_2X_tournament(&data);
+	dataSet* data = create_instance(5,"tournament1.csv");
+	if (data == NULL) {
+		fprintf(stderr, "Failed to create instance.\n");
+		return 1;
+	}
+	solve_2X_tournament(data);
 
 	return rval;
 }

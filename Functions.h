@@ -5,6 +5,7 @@
 #include <math.h>
 #include <errno.h>
 #include <time.h>
+#include <stdbool.h>
 #include<ilcplex/cplex.h>
 #include <assert.h>
 
@@ -70,4 +71,6 @@ typedef struct dataSet
 
 dataSet* create_instance(int n, char* file_name);
 int read_instance(FILE*fin,dataSet* dsptr);
+bool triangle(dataSet* dsptr, int i, int j, int k);
+int solve_2X_tournament(dataSet* dsptr);
 

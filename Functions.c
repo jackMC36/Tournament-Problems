@@ -175,45 +175,44 @@ int solve_2X_tournament(dataSet* dsptr)
 
 	ip_prob_ptr->rmatbeg[0] = 0;
 
-	//We generate and add each constraint to the model
-	for(int i=0;i<n;i++){
-		for(int j=0;j<n;j++){
-			for(int k=0; k<n; k++){
-				if(triangle(dsptr,i,j,k)){
-						ip_prob_ptr->rhs[0] = 1;
-						ip_prob_ptr->sense[0] = 'G';
-						char buffer[32] = "constraint_";
-						sprintf(buffer,"%d",i);
-						sprintf(buffer,"%d",j);
-						sprintf(buffer,"%d",k);
-						
-						//Constraint name
-						snprintf(       ip_prob_ptr->const_name[0],
-								1024,
-								"buffer"
-								);
+	for (int i = 0; i < n - 2; i++) {
+		for (int j = i + 1; j < n - 1; j++) {
+			for (int k = j + 1; k < n; k++) {
+				if (!triangle(dsptr, i, j, k)) {
+					continue;
+				}
 
-						ip_prob_ptr->rmatind[i] = i;
-						ip_prob_ptr->rmatval[i] = 1;
-						ip_prob_ptr->rmatind[j] = j;
-						ip_prob_ptr->rmatval[j] = 1;
-						ip_prob_ptr->rmatind[k] = k;
-						ip_prob_ptr->rmatval[k] = 1;
+				ip_prob_ptr->rhs[0] = 1;
+				ip_prob_ptr->sense[0] = 'G';
 
-						}
-						rval = CPXaddrows( ip_prob_ptr->env, ip_prob_ptr->lp, 
-								0,//No new column
-								1,//One new row
-								3,//Number of nonzero coefficients
-								ip_prob_ptr->rhs, 
-								ip_prob_ptr->sense, 
-								ip_prob_ptr->rmatbeg, 
-								ip_prob_ptr->rmatind, 
-								ip_prob_ptr->rmatval,
-								NULL,//No new column
-								ip_prob_ptr->const_name );
-						if(rval)
-							fprintf(stderr,"CPXaddrows returned errcode %d\n",rval);
+				snprintf(ip_prob_ptr->const_name[0],
+						 1024,
+						 "constraint_%d_%d_%d",
+						 i,
+						 j,
+						 k);
+
+				ip_prob_ptr->rmatind[0] = i;
+				ip_prob_ptr->rmatval[0] = 1.0;
+				ip_prob_ptr->rmatind[1] = j;
+				ip_prob_ptr->rmatval[1] = 1.0;
+				ip_prob_ptr->rmatind[2] = k;
+				ip_prob_ptr->rmatval[2] = 1.0;
+
+				rval = CPXaddrows(ip_prob_ptr->env,
+						  ip_prob_ptr->lp,
+						  0,//No new column
+						  1,//One new row
+						  3,//Number of nonzero coefficients
+						  ip_prob_ptr->rhs,
+						  ip_prob_ptr->sense,
+						  ip_prob_ptr->rmatbeg,
+						  ip_prob_ptr->rmatind,
+						  ip_prob_ptr->rmatval,
+						  NULL,//No new column
+						  ip_prob_ptr->const_name);
+				if (rval)
+					fprintf(stderr,"CPXaddrows returned errcode %d\n",rval);
 			}
 		}
 	}
@@ -223,7 +222,7 @@ int solve_2X_tournament(dataSet* dsptr)
 
 
 	//We write the problem for debugging purposes, can be commented afterwards
-	rval = CPXwriteprob (ip_prob_ptr->env, ip_prob_ptr->lp, "multiDKnapsack.lp", NULL);
+	rval = CPXwriteprob (ip_prob_ptr->env, ip_prob_ptr->lp, "Tournament.lp", NULL);
 	if(rval)
 		fprintf(stderr,"CPXwriteprob returned errcode %d\n",rval);
 
@@ -232,7 +231,7 @@ int solve_2X_tournament(dataSet* dsptr)
 	if(rval)
 		fprintf(stderr,"CPXmipopt returned errcode %d\n",rval);
 
-	rval = CPXsolwrite( ip_prob_ptr->env, ip_prob_ptr->lp, "multiDKnapsack.sol" );
+	rval = CPXsolwrite( ip_prob_ptr->env, ip_prob_ptr->lp, "Tournament.sol" );
 	if(rval)
 		fprintf(stderr,"CPXsolwrite returned errcode %d\n",rval);
 
