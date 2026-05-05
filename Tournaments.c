@@ -10,7 +10,6 @@
 
 int main(int argc, char **argv)
 {
-	int rval =0;	
 	//File instance name
 	//-F option
     //    char instance_file[1024];
@@ -43,13 +42,12 @@ int main(int argc, char **argv)
 
 	//dataSet data;
 
-	dataSet* data = create_instance(5,"tournament1.csv");
-	if (data == NULL) {
-		fprintf(stderr, "Failed to create instance.\n");
-		return 1;
-	}
-	solve_2X_tournament(data);
+	//dataSet* data = create_2X_tournament(5,"tournament1.csv");
+	
+	dataSet* new_data = create_2X_light_tournament(12,"tournament12.csv");
 
-	return rval;
+	//solve_2X_tournament(data);
+
+	return 0;
 }
 

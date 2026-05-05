@@ -69,8 +69,16 @@ typedef struct dataSet
 
 } dataSet;
 
-dataSet* create_instance(int n, char* file_name);
-int read_instance(FILE*fin,dataSet* dsptr);
-bool triangle(dataSet* dsptr, int i, int j, int k);
+typedef struct arc
+{
+        int u;
+        int v;
+} arc;
+
+dataSet* create_2X_tournament(int n, char* file_name);
+dataSet* transform_2X_light_tournament(int n, char* file_name);
+dataSet* create_2X_light_tournament(int n, char* file_name);
+bool is_directed_triangle(dataSet* dsptr, int i, int j, int k);
+bool is_heavy_arc(dataSet* dsptr, int u, int v);
 int solve_2X_tournament(dataSet* dsptr);
 

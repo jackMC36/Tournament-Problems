@@ -7,10 +7,35 @@
 #include <time.h>
 #include<ilcplex/cplex.h>
 
-dataSet* create_instance(int n, char* file_name)
+int read_instance(FILE*fin,dataSet* dsptr)
+{
+	int n;
+	if (fscanf(fin, "%d\n", &n) != 1) return 1;
+
+	dsptr->n = n;
+	dsptr->vertices = calloc(n, sizeof(int));
+	dsptr->arcs = malloc(n * sizeof(int*));
+	for (int i = 0; i < n; i++)
+		dsptr->arcs[i] = calloc(n, sizeof(int));
+
+	char line[65536];
+	for (int i = 0; i < n; i++) {
+		if (fgets(line, sizeof(line), fin) == NULL) return 1;
+		char* ptr = line;
+		for (int j = 0; j < n; j++) {
+			dsptr->arcs[i][j] = (int)strtol(ptr, &ptr, 10);
+			if (*ptr == ',') ptr++;
+		}
+	}
+
+	return 0;
+}
+
+dataSet* create_2X_tournament(int n, char* file_name)
 {
 	srand(time(NULL));
 	FILE* fptr = fopen(file_name, "w");
+	if (fptr == NULL) return NULL;
 	
 	dataSet* dsptr = malloc(sizeof(dataSet));
 	if(dsptr == NULL) return NULL;
@@ -20,7 +45,6 @@ dataSet* create_instance(int n, char* file_name)
 	for(int i = 0 ; i < n ; i++)
 		dsptr->arcs[i] = calloc(n,sizeof(int));
 
-	//Set A
 	for(int i=0;i<n/2;i++){
 		for(int j=0;j<n/2;j++){
 			if(i==j){
@@ -35,7 +59,6 @@ dataSet* create_instance(int n, char* file_name)
 		}
 	}
 
-	//Set B
 	for(int i=n/2;i<n;i++){
 		for(int j=n/2;j<n;j++){
 			if(i==j){
@@ -50,7 +73,6 @@ dataSet* create_instance(int n, char* file_name)
 		}
 	}
 
-	//Arcs between Set A and B
 	for(int i=0;i<n/2;i++)
 	{
 		for(int j=n/2;j<n;j++)
@@ -81,11 +103,103 @@ dataSet* create_instance(int n, char* file_name)
 		}
 		fprintf(fptr,"\n");
 	}
+	fclose(fptr);
 
 	return dsptr;
 }
 
-bool triangle(dataSet* dsptr, int i, int j, int k){
+dataSet* transform_2X_light_tournament(int n, char* file_name)
+{
+	dataSet* initial = create_2X_tournament(n,file_name);
+	if (initial == NULL) return NULL;
+
+	dataSet* new_dsptr = malloc(sizeof(dataSet));
+	if(new_dsptr == NULL) return NULL;
+	int* old_to_new = malloc(n*sizeof(int));
+	int* new_to_old = malloc(n*sizeof(int));
+	bool* heavy_vertex = calloc(n, sizeof(bool));
+	if (old_to_new == NULL || new_to_old == NULL || heavy_vertex == NULL) return NULL;
+
+	for (int i = 0; i < n; i++) {
+		old_to_new[i] = -1;
+	}
+
+	for (int u = 0; u < n; u++) {
+		for (int v = 0; v < n; v++) {
+			if (u == v) continue;
+			if (is_heavy_arc(initial, u, v)) {
+				heavy_vertex[u] = true;
+				heavy_vertex[v] = true;
+			}
+		}
+	}
+
+	int new_n = 0;
+	int heavy_vertex_count = 0;
+
+	for (int i = 0; i < n; i++) {
+		if (heavy_vertex[i]) {
+			heavy_vertex_count++;
+			continue;
+		}
+		old_to_new[i] = new_n;
+		new_to_old[new_n] = i;
+		new_n++;
+	}
+
+	fprintf(stderr, "create_2X_light_tournament: heavy_vertices=%d removed=%d kept=%d\n",
+		heavy_vertex_count,
+		heavy_vertex_count,
+		new_n);
+
+	new_dsptr->n = new_n;
+	new_dsptr->vertices = calloc(new_n,sizeof(int));
+	new_dsptr->arcs = malloc(new_n*sizeof(int*));
+	for(int i = 0 ; i < new_n ; i++)
+		new_dsptr->arcs[i] = calloc(new_n,sizeof(int));
+
+	for(int i = 0; i<new_n;i++){
+		new_dsptr->vertices[i] = i;
+	}
+
+	for(int i = 0; i<new_n; i++){
+		for(int j = 0; j<new_n; j++){
+			new_dsptr->arcs[i][j] = initial->arcs[new_to_old[i]][new_to_old[j]];
+		}
+	}
+
+
+
+	FILE* fptr = fopen(file_name, "w");
+	if (fptr == NULL) {
+		free(old_to_new);
+		free(new_to_old);
+		free(heavy_vertex);
+		return NULL;
+	}
+
+	n = new_n;
+
+	fprintf(fptr, "%d\n", n);
+	for(int i = 0; i<n; i++){
+		for(int j = 0; j<n; j++){
+			fprintf(fptr, "%d", new_dsptr->arcs[i][j]);
+			if(j!=n-1){
+				fprintf(fptr,",");
+			}
+		}
+		fprintf(fptr,"\n");
+	}
+	fclose(fptr);
+
+	free(old_to_new);
+	free(new_to_old);
+	free(heavy_vertex);
+
+	return new_dsptr;	
+}
+
+bool is_directed_triangle(dataSet* dsptr, int i, int j, int k){
 	int** arcs = dsptr->arcs;
 	if((arcs[i][j]==arcs[j][k])&&(arcs[j][k]==arcs[k][i])&&(arcs[k][i]==arcs[i][j])){
 		return true;
@@ -94,6 +208,41 @@ bool triangle(dataSet* dsptr, int i, int j, int k){
 	return false;
 
 }
+
+bool is_heavy_arc(dataSet* dsptr, int u, int v){
+	int n = dsptr->n;
+	if (u == v) return false;
+	for (int a = 0; a < n - 2; a++) {
+		if (a == u || a == v) continue;
+		for (int b = a + 1; b < n - 1; b++) {
+			if (b == u || b == v) continue;
+			for (int c = b + 1; c < n; c++) {
+				if (c == u || c == v) continue;
+				if (!is_directed_triangle(dsptr, a, b, c)) {
+					continue;
+				}
+			
+				if(is_directed_triangle(dsptr,u,v,a)&&is_directed_triangle(dsptr,u,v,b)&&is_directed_triangle(dsptr,u,v,c)){
+					return true;
+				}
+
+			}
+
+		}
+	}
+	return false;
+}
+
+dataSet* create_2X_light_tournament(int n, char* file_name){
+	dataSet* dsptr = transform_2X_light_tournament(n,file_name);
+	while(dsptr->n!= n){
+		free(dsptr);
+		dsptr = transform_2X_light_tournament(n,file_name);
+	}
+
+	return dsptr;
+}
+
 
 int solve_2X_tournament(dataSet* dsptr)
 {
@@ -138,8 +287,8 @@ int solve_2X_tournament(dataSet* dsptr)
 	{
 		ip_prob_ptr->x[j] = 0;
 		ip_prob_ptr->cost[j] = 1;
-		ip_prob_ptr->c_type[j] = 'I';
-		ip_prob_ptr->up_bound[j] = 1000;
+		ip_prob_ptr->c_type[j] = 'C';
+		ip_prob_ptr->up_bound[j] = 1;
 		ip_prob_ptr->low_bound[j] = 0;
 		ip_prob_ptr->var_name[j] = (char*)malloc(sizeof(char)*1024);
 	        snprintf(       ip_prob_ptr->var_name[j],
@@ -178,7 +327,7 @@ int solve_2X_tournament(dataSet* dsptr)
 	for (int i = 0; i < n - 2; i++) {
 		for (int j = i + 1; j < n - 1; j++) {
 			for (int k = j + 1; k < n; k++) {
-				if (!triangle(dsptr, i, j, k)) {
+				if (!is_directed_triangle(dsptr, i, j, k)) {
 					continue;
 				}
 
