@@ -53,9 +53,8 @@ typedef struct IP_problem
 
 typedef struct dataSet 
 {
-	//Attributes of the instance
 
-	//Array of Integers from 0 to n-1 corresponding to all the vertices (A union B)
+	//Array of Integers from 0 to n-1 corresponding to all the vertices
 	int*vertices;
 
 	//Array of 1 and -1, corresponding to the direction of the arcs
@@ -69,16 +68,51 @@ typedef struct dataSet
 
 } dataSet;
 
-typedef struct arc
+typedef struct hyperEdge
 {
         int u;
         int v;
-} arc;
+        int k;
 
+} hyperEdge;
+
+typedef struct  hyperDataSet
+{
+        //Array of Integers from 0 to n-1 corresponding to all the vertices
+        int*vertices;
+
+
+        hyperEdge* edges;
+
+        //Integer corresponding to the number of vertices
+        int n;
+        //integer corresponding to the number of edges
+        int m;
+
+        //CPLEX problem data
+	IP_problem master;
+
+} hyperDataSet;
+
+
+
+int read_instance_tournament(char* file_name,dataSet* dsptr);
+
+hyperDataSet* create_3_uniform_hypergraph(int n, char* file_name);
+dataSet* transform_3_uniform_hypergraph_to_tournament(hyperDataSet* hdsptr, char* file_name);
 dataSet* create_2X_tournament(int n, char* file_name);
-dataSet* transform_2X_light_tournament(int n, char* file_name);
 dataSet* create_2X_light_tournament(int n, char* file_name);
+dataSet** partition_new_2X_heavy_tournament(int n, char* file_name_1, char* file_name_2);
+dataSet** partition_2X_heavy_tournament(dataSet* initial, char* file_name_1, char* file_name_2);
+
 bool is_directed_triangle(dataSet* dsptr, int i, int j, int k);
 bool is_heavy_arc(dataSet* dsptr, int u, int v);
-int solve_2X_tournament(dataSet* dsptr);
+bool is_light_tournament(dataSet* dsptr);
+bool is_in(hyperEdge e1, hyperEdge* edges, int n);
+bool are_equal(hyperEdge e1, hyperEdge e2);
 
+int solve_2X_tournament(dataSet* dsptr);
+int solve_2X_3_uniform_hypergraph(hyperDataSet* dsptr);
+
+void clean_dataSet(dataSet* dsptr);
+void clean_hyperDataSet(hyperDataSet* dsptr);
