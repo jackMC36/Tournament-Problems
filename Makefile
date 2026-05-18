@@ -11,6 +11,13 @@ CPLEXBINDIR   = $(CPLEXDIR)/bin/$(BINDIST)
 CPLEXLIBDIR   = $(CPLEXDIR)/lib/$(SYSTEM)/$(LIBFORMAT)
 CPLEXINCDIR   = $(CPLEXDIR)/include
 
+GUROBIDIR ?= $(firstword $(wildcard \
+	/home/jack/opt/gurobi*/linux64 \
+	/opt/gurobi*/linux64 \
+	/usr/local/gurobi*/linux64))
+GUROBILIBDIR  = $(GUROBIDIR)/lib
+GUROBIINCDIR  = $(GUROBIDIR)/include
+
 ifeq ($(strip $(CPLEXDIR)),)
 $(error CPLEX not found. Install IBM ILOG CPLEX and set CPLEXDIR, e.g. make CPLEXDIR=/opt/ibm/ILOG/CPLEX_Studio_Community2212/cplex)
 endif
@@ -24,12 +31,12 @@ EXE = Tournaments
 OBJS = src/Functions.o src/Tournaments.o 
 
 # CHANGEME: Additional libraries
-ADDLIBS = -L$(CPLEXLIBDIR) -lilocplex -lcplex -m64 -lm -lpthread -ldl
+ADDLIBS = -L$(CPLEXLIBDIR) -lilocplex -lcplex -L$(GUROBILIBDIR) -lgurobi130 -Wl,-rpath,$(GUROBILIBDIR) -m64 -lm -lpthread -ldl
 
 # CHANGEME: Additional flags for compilation (e.g., include flags)
 DEFINES= -DSYS_UNIX=1 
 
-INCL = -I$(CPLEXINCDIR) -g $(DEFINES)
+INCL = -I$(CPLEXINCDIR) -I$(GUROBIINCDIR) -g $(DEFINES)
 
 # C Compiler command
 CC = gcc
