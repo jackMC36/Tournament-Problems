@@ -1,8 +1,6 @@
 #include "Functions.h"
 
 
-
-
 int read_instance_tournament(char* file_name,dataSet* dsptr)
 {
 
@@ -31,12 +29,43 @@ int read_instance_tournament(char* file_name,dataSet* dsptr)
 	return 0;
 }
 
+
+void affichage_matrice_tournament(dataSet* dsptr)
+{
+	printf("\nTournament T on %d vertices",dsptr->n);
+	printf("\nMatrice d'adjacence:\n");
+	for(int i=0;i<dsptr->n;i++){
+		printf("|");
+		for(int j=0;j<dsptr->n;j++){
+			printf("%d", dsptr->arcs[i][j]);
+			if(j<dsptr->n-1){
+				printf(",");
+			}
+		}
+		printf("|\n");
+	}
+
+}
+
+int* int_vers_Binaire(int code){
+    int* binaire = malloc(8 * sizeof(int));
+    for (int i = 7; i >= 0; i--) {
+        binaire[i] = code % 2;
+        code = code / 2;
+    }
+    return binaire;
+}
+
 hyperDataSet* create_3_uniform_hypergraph_partition_method(int n, char* file_name)
 {
 	hyperDataSet* dsptr = malloc(sizeof(hyperDataSet));
 	if(dsptr == NULL) return NULL;
 
-	srand(time(NULL));
+	static int seeded_partition = 0;
+	if (!seeded_partition) {
+		srand((unsigned int)time(NULL));
+		seeded_partition = 1;
+	}
 	float p;
 
 	dsptr-> n = n;
@@ -106,7 +135,11 @@ hyperDataSet* create_3_uniform_hypergraph(int n, char* file_name)
 	hyperDataSet* dsptr = malloc(sizeof(hyperDataSet));
 	if(dsptr == NULL) return NULL;
 
-	srand(time(NULL));
+	static int seeded_hypergraph = 0;
+	if (!seeded_hypergraph) {
+		srand((unsigned int)time(NULL));
+		seeded_hypergraph = 1;
+	}
 	float p;
 
 	dsptr-> n = n;
@@ -140,7 +173,7 @@ hyperDataSet* create_3_uniform_hypergraph(int n, char* file_name)
 
 				p = (double)rand()/((double)RAND_MAX/1.0);
 
-				if(p>1.0/(double)(n*n*n)){
+				if(p>1.0/(double)(n*n)){
 					continue;
 				}
 				
@@ -355,6 +388,102 @@ bool are_equal(hyperEdge e1, hyperEdge e2)
 
 }
 
+dataSet** create_all_tournaments_of_size_k(int k){
+	int edge_count = k * (k - 1) / 2;
+
+	size_t number_t = (size_t)1 << edge_count;
+	dataSet** list_dsptr = calloc(number_t + 1, sizeof(dataSet*));
+	if (list_dsptr == NULL) {
+		return NULL;
+	}
+
+	for (size_t mask = 0; mask < number_t; mask++) {
+		dataSet* dsptr = malloc(sizeof(dataSet));
+		if (dsptr == NULL) {
+			for (size_t t = 0; t < mask; t++) {
+				if (list_dsptr[t] == NULL) {
+					continue;
+				}
+				for (int i = 0; i < k; i++) {
+					free(list_dsptr[t]->arcs[i]);
+				}
+				free(list_dsptr[t]->arcs);
+				free(list_dsptr[t]->vertices);
+				free(list_dsptr[t]);
+			}
+			free(list_dsptr);
+			return NULL;
+		}
+
+		dsptr->n = k;
+		dsptr->vertices = calloc(k, sizeof(int));
+		dsptr->arcs = malloc(k * sizeof(int*));
+		if (dsptr->vertices == NULL || dsptr->arcs == NULL) {
+			free(dsptr->vertices);
+			free(dsptr->arcs);
+			free(dsptr);
+			for (size_t t = 0; t < mask; t++) {
+				if (list_dsptr[t] == NULL) {
+					continue;
+				}
+				for (int i = 0; i < k; i++) {
+					free(list_dsptr[t]->arcs[i]);
+				}
+				free(list_dsptr[t]->arcs);
+				free(list_dsptr[t]->vertices);
+				free(list_dsptr[t]);
+			}
+			free(list_dsptr);
+			return NULL;
+		}
+
+		for (int i = 0; i < k; i++) {
+			dsptr->vertices[i] = i;
+			dsptr->arcs[i] = calloc(k, sizeof(int));
+			if (dsptr->arcs[i] == NULL) {
+				for (int r = 0; r < i; r++) {
+					free(dsptr->arcs[r]);
+				}
+				free(dsptr->arcs);
+				free(dsptr->vertices);
+				free(dsptr);
+				for (size_t t = 0; t < mask; t++) {
+					if (list_dsptr[t] == NULL) {
+						continue;
+					}
+					for (int u = 0; u < k; u++) {
+						free(list_dsptr[t]->arcs[u]);
+					}
+					free(list_dsptr[t]->arcs);
+					free(list_dsptr[t]->vertices);
+					free(list_dsptr[t]);
+				}
+				free(list_dsptr);
+				return NULL;
+			}
+		}
+
+		size_t bit_index = 0;
+		for (int i = 0; i < k; i++) {
+			for (int j = i + 1; j < k; j++) {
+				if ((mask >> bit_index) & 1ULL) {
+					dsptr->arcs[i][j] = 1;
+					dsptr->arcs[j][i] = -1;
+				} else {
+					dsptr->arcs[i][j] = -1;
+					dsptr->arcs[j][i] = 1;
+				}
+				bit_index++;
+			}
+		}
+
+		list_dsptr[mask] = dsptr;
+	}
+
+	list_dsptr[number_t] = NULL;
+	return list_dsptr;
+}
+
 dataSet* create_random_tournament(int n, char* file_name)
 {
 	srand(time(NULL));
@@ -449,6 +578,7 @@ dataSet* create_greedy_2X_tournament(int n, char* file_name)
 }
 
 dataSet* create_subgraph_with_removed_vertice(dataSet* initial, int v, char* file_name){
+
 	if (initial == NULL || v < 0 || v >= initial->n || initial->n <= 1) {
 		return NULL;
 	}
@@ -516,6 +646,102 @@ dataSet* create_subgraph_with_removed_vertice(dataSet* initial, int v, char* fil
 	return new_data;
 
 }
+
+static dataSet* create_subgraph_with_removed_vertices(dataSet* initial, int* removed, int removed_count, char* file_name)
+{
+	if (initial == NULL || removed == NULL || removed_count <= 0 || removed_count >= initial->n) {
+		return NULL;
+	}
+
+	bool* removed_flag = calloc(initial->n, sizeof(bool));
+	if (removed_flag == NULL) {
+		return NULL;
+	}
+
+	for (int i = 0; i < removed_count; i++) {
+		if (removed[i] < 0 || removed[i] >= initial->n) {
+			free(removed_flag);
+			return NULL;
+		}
+		removed_flag[removed[i]] = true;
+	}
+
+	dataSet* new_data = malloc(sizeof(dataSet));
+	if (new_data == NULL) {
+		free(removed_flag);
+		return NULL;
+	}
+
+	FILE* fptr = fopen(file_name, "w");
+	if (fptr == NULL) {
+		free(removed_flag);
+		free(new_data);
+		return NULL;
+	}
+
+	new_data->n = initial->n - removed_count;
+	int n = new_data->n;
+	new_data->vertices = malloc(n * sizeof(int));
+	new_data->arcs = malloc(n * sizeof(int*));
+	if (new_data->vertices == NULL || new_data->arcs == NULL) {
+		fclose(fptr);
+		free(removed_flag);
+		free(new_data->vertices);
+		free(new_data->arcs);
+		free(new_data);
+		return NULL;
+	}
+
+	for (int i = 0; i < n; i++) {
+		new_data->arcs[i] = malloc(n * sizeof(int));
+		if (new_data->arcs[i] == NULL) {
+			for (int r = 0; r < i; r++) {
+				free(new_data->arcs[r]);
+			}
+			fclose(fptr);
+			free(removed_flag);
+			free(new_data->vertices);
+			free(new_data->arcs);
+			free(new_data);
+			return NULL;
+		}
+	}
+
+	int new_i = 0;
+	for (int old_i = 0; old_i < initial->n; old_i++) {
+		if (removed_flag[old_i]) {
+			continue;
+		}
+
+		new_data->vertices[new_i] = initial->vertices[old_i];
+		int new_j = 0;
+		for (int old_j = 0; old_j < initial->n; old_j++) {
+			if (removed_flag[old_j]) {
+				continue;
+			}
+			new_data->arcs[new_i][new_j] = initial->arcs[old_i][old_j];
+			new_j++;
+		}
+		new_i++;
+	}
+
+	fprintf(fptr, "%d\n", n);
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			fprintf(fptr, "%d", new_data->arcs[i][j]);
+			if (j != n - 1) {
+				fprintf(fptr, ",");
+			}
+		}
+		fprintf(fptr, "\n");
+	}
+	fclose(fptr);
+
+	free(removed_flag);
+	clean_dataSet(initial);
+	return new_data;
+}
+
 dataSet* create_2X_tournament(int n, char* file_name)
 {
 	srand(time(NULL));
@@ -796,10 +1022,12 @@ dataSet** partition_heavy_tournament(dataSet* initial, char* file_name_1, char* 
 
 bool is_directed_triangle(dataSet* dsptr, int i, int j, int k){
 	int** arcs = dsptr->arcs;
-	if((arcs[i][j]==arcs[j][k])&&(arcs[j][k]==arcs[k][i])&&(arcs[k][i]==arcs[i][j])){
+	/* For a fixed order (i,j,k), a 3-cycle appears in either orientation:
+	 * i->j->k->i gives (+1,+1,+1), and the reverse gives (-1,-1,-1).
+	 */
+	if (arcs[i][j] == arcs[j][k] && arcs[j][k] == arcs[k][i]) {
 		return true;
 	}
-
 	return false;
 
 }
@@ -830,6 +1058,481 @@ bool is_light_tournament(dataSet* dsptr){
 	return true;
 }
 
+dataSet* create_U5()
+{
+	int n = 5;
+	dataSet* dsptr = malloc(sizeof(dataSet));
+	if (!dsptr) return NULL;
+	dsptr->n = n;
+	dsptr->vertices = malloc(n * sizeof(int));
+	if (!dsptr->vertices) {
+		free(dsptr);
+		return NULL;
+	}
+
+	for(int i=0; i<n;i++){
+		dsptr->vertices[i] = i;
+	}
+
+	int** arcs = malloc(n*sizeof(int*));
+	if (!arcs) {
+		free(dsptr->vertices);
+		free(dsptr);
+		return NULL;
+	}
+	for(int i=0;i<n;i++){
+		arcs[i] = calloc(n,sizeof(int));
+		if (!arcs[i]) {
+			for (int r = 0; r < i; r++) {
+				free(arcs[r]);
+			}
+			free(arcs);
+			free(dsptr->vertices);
+			free(dsptr);
+			return NULL;
+		}
+	}
+
+	for(int i=1; i<n-1;i++){
+		arcs[i][i+1] = 1;
+		arcs[i+1][i] = -1;
+	}
+
+	arcs[1][0] = 1;
+	arcs[0][1] = -1;
+
+	arcs[4][0] = 1;
+	arcs[0][4] = -1;
+
+	arcs[0][2] = 1;
+	arcs[2][0] = -1;
+
+	arcs[2][4] = 1;
+	arcs[4][2] = -1;
+
+	arcs[4][1] = 1;
+	arcs[1][4] = -1;
+
+	arcs[1][3] = 1;
+	arcs[3][1] = -1;
+
+	arcs[3][0] = 1;
+	arcs[0][3] = -1;
+
+	dsptr->arcs = arcs;
+
+	return dsptr;
+}
+
+dataSet* create_T5()
+{
+	int n = 5;
+	dataSet* dsptr = malloc(sizeof(dataSet));
+	if (!dsptr) return NULL;
+	dsptr->n = n;
+	dsptr->vertices = malloc(n * sizeof(int));
+	if (!dsptr->vertices) {
+		free(dsptr);
+		return NULL;
+	}
+
+	for(int i=0; i<n;i++){
+		dsptr->vertices[i] = i;
+	}
+
+	int** arcs = malloc(n*sizeof(int*));
+	if (!arcs) {
+		free(dsptr->vertices);
+		free(dsptr);
+		return NULL;
+	}
+	for(int i=0;i<n;i++){
+		arcs[i] = calloc(n,sizeof(int));
+		if (!arcs[i]) {
+			for (int r = 0; r < i; r++) {
+				free(arcs[r]);
+			}
+			free(arcs);
+			free(dsptr->vertices);
+			free(dsptr);
+			return NULL;
+		}
+	}
+
+	for(int i=0; i<n-1;i++){
+		arcs[i][i+1] = 1;
+		arcs[i+1][i] = -1;
+	}
+	arcs[4][0] = 1;
+	arcs[0][4] = -1;
+
+	arcs[0][2] = 1;
+	arcs[2][0] = -1;
+
+	arcs[2][4] = 1;
+	arcs[4][2] = -1;
+
+	arcs[4][1] = 1;
+	arcs[1][4] = -1;
+
+	arcs[1][3] = 1;
+	arcs[3][1] = -1;
+
+	arcs[3][0] = 1;
+	arcs[0][3] = -1;
+
+	dsptr->arcs = arcs;
+
+	return dsptr;
+}
+
+dataSet* create_H2()
+{
+	int n = 5;
+	dataSet* dsptr = malloc(sizeof(dataSet));
+	if (!dsptr) return NULL;
+	dsptr->n = n;
+	dsptr->vertices = malloc(n * sizeof(int));
+	if (!dsptr->vertices) {
+		free(dsptr);
+		return NULL;
+	}
+
+	for(int i=0; i<n;i++){
+		dsptr->vertices[i] = i;
+	}
+
+	int** arcs = malloc(n*sizeof(int*));
+	if (!arcs) {
+		free(dsptr->vertices);
+		free(dsptr);
+		return NULL;
+	}
+	for(int i=0;i<n;i++){
+		arcs[i] = calloc(n,sizeof(int));
+		if (!arcs[i]) {
+			for (int r = 0; r < i; r++) {
+				free(arcs[r]);
+			}
+			free(arcs);
+			free(dsptr->vertices);
+			free(dsptr);
+			return NULL;
+		}
+	}
+
+	for(int i=0; i<n-1;i++){
+		arcs[i][i+1] = 1;
+		arcs[i+1][i] = -1;
+	}
+	arcs[4][0] = 1;
+	arcs[0][4] = -1;
+
+	arcs[0][2] = 1;
+	arcs[2][0] = -1;
+
+	arcs[2][4] = -1;
+	arcs[4][2] = 1;
+
+	arcs[4][1] = -1;
+	arcs[1][4] = 1;
+
+	arcs[1][3] = -1;
+	arcs[3][1] = 1;
+
+	arcs[3][0] = 1;
+	arcs[0][3] = -1;
+
+	dsptr->arcs = arcs;
+
+	return dsptr;
+}
+
+dataSet* create_W5()
+{
+	int n = 5;
+	dataSet* dsptr = malloc(sizeof(dataSet));
+	if (!dsptr) return NULL;
+	dsptr->n = n;
+	dsptr->vertices = malloc(n * sizeof(int));
+	if (!dsptr->vertices) {
+		free(dsptr);
+		return NULL;
+	}
+
+	for(int i=0; i<n;i++){
+		dsptr->vertices[i] = i;
+	}
+
+	int** arcs = malloc(n*sizeof(int*));
+	if (!arcs) {
+		free(dsptr->vertices);
+		free(dsptr);
+		return NULL;
+	}
+	for(int i=0;i<n;i++){
+		arcs[i] = calloc(n,sizeof(int));
+		if (!arcs[i]) {
+			for (int r = 0; r < i; r++) {
+				free(arcs[r]);
+			}
+			free(arcs);
+			free(dsptr->vertices);
+			free(dsptr);
+			return NULL;
+		}
+	}
+
+	for(int i=0; i<n-1;i++){
+		arcs[i][i+1] = -1;
+		arcs[i+1][i] = 1;
+	}
+	arcs[4][0] = -1;
+	arcs[0][4] = 1;
+
+	arcs[0][2] = 1;
+	arcs[2][0] = -1;
+
+	arcs[2][4] = -1;
+	arcs[4][2] = 1;
+
+	arcs[4][1] = 1;
+	arcs[1][4] = -1;
+
+	arcs[1][3] = -1;
+	arcs[3][1] = 1;
+
+	arcs[3][0] = 1;
+	arcs[0][3] = -1;
+
+	dsptr->arcs = arcs;
+
+	return dsptr;
+}
+
+dataSet* create_Delta_122()
+{
+	int n = 5;
+	dataSet* dsptr = malloc(sizeof(dataSet));
+	if (!dsptr) return NULL;
+	dsptr->n = n;
+	dsptr->vertices = malloc(n * sizeof(int));
+	if (!dsptr->vertices) {
+		free(dsptr);
+		return NULL;
+	}
+
+	for(int i=0; i<n;i++){
+		dsptr->vertices[i] = i;
+	}
+
+	int** arcs = malloc(n*sizeof(int*));
+	if (!arcs) {
+		free(dsptr->vertices);
+		free(dsptr);
+		return NULL;
+	}
+	for(int i=0;i<n;i++){
+		arcs[i] = calloc(n,sizeof(int));
+		if (!arcs[i]) {
+			for (int r = 0; r < i; r++) {
+				free(arcs[r]);
+			}
+			free(arcs);
+			free(dsptr->vertices);
+			free(dsptr);
+			return NULL;
+		}
+	}
+
+	for(int i=0; i<n-1;i++){
+		arcs[i][i+1] = 1;
+		arcs[i+1][i] = -1;
+	}
+
+	arcs[4][0] = 1;
+	arcs[0][4] = -1;
+
+	arcs[0][2] = -1;
+	arcs[2][0] = 1;
+
+	arcs[2][4] = 1;
+	arcs[4][2] = -1;
+
+	arcs[4][1] = 1;
+	arcs[1][4] = -1;
+
+	arcs[1][3] = 1;
+	arcs[3][1] = -1;
+
+	arcs[3][0] = 1;
+	arcs[0][3] = -1;
+
+	dsptr->arcs = arcs;
+
+	return dsptr;
+}
+
+dataSet* create_P7()
+{
+	int n = 7;
+	dataSet* dsptr = malloc(sizeof(dataSet));
+	if (!dsptr) return NULL;
+
+	dsptr->n = n;
+	dsptr->vertices = malloc(n * sizeof(int));
+	if (!dsptr->vertices) {
+		free(dsptr);
+		return NULL;
+	}
+
+	for (int i = 0; i < n; i++) {
+		dsptr->vertices[i] = i;
+	}
+
+	int** arcs = malloc(n * sizeof(int*));
+	if (!arcs) {
+		free(dsptr->vertices);
+		free(dsptr);
+		return NULL;
+	}
+
+	for (int i = 0; i < n; i++) {
+		arcs[i] = calloc(n, sizeof(int));
+		if (!arcs[i]) {
+			for (int r = 0; r < i; r++) {
+				free(arcs[r]);
+			}
+			free(arcs);
+			free(dsptr->vertices);
+			free(dsptr);
+			return NULL;
+		}
+	}
+
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			if (i == j) {
+				arcs[i][j] = 0;
+				continue;
+			}
+
+			int d = (j - i + n) % n;
+			if (d == 1 || d == 2 || d == 4) {
+				arcs[i][j] = 1;
+			} else {
+				arcs[i][j] = -1;
+			}
+		}
+	}
+
+	dsptr->arcs = arcs;
+	return dsptr;
+}
+
+dataSet* create_P7m()
+{
+    int n = 6;
+    dataSet* dsptr = malloc(sizeof(dataSet));
+    if (!dsptr) return NULL;
+
+    dsptr->n = n;
+    dsptr->vertices = malloc(n * sizeof(int));
+    dsptr->arcs = malloc(n * sizeof(int*));
+
+    if (!dsptr->vertices || !dsptr->arcs) {
+        free(dsptr->vertices);
+        free(dsptr->arcs);
+        free(dsptr);
+        return NULL;
+    }
+
+    for (int i = 0; i < n; i++) {
+        dsptr->vertices[i] = i;
+        dsptr->arcs[i] = malloc(n * sizeof(int));
+        
+        if (!dsptr->arcs[i]) {
+            for (int r = 0; r < i; r++) free(dsptr->arcs[r]);
+            free(dsptr->vertices);
+            free(dsptr->arcs);
+            free(dsptr);
+            return NULL;
+        }
+
+        for (int j = 0; j < n; j++) {
+            if (i == j) {
+                dsptr->arcs[i][j] = 0;
+            } else {
+                int d = (j - i + 7) % 7;
+                if (d == 1 || d == 2 || d == 4) {
+                    dsptr->arcs[i][j] = 1;
+                } else {
+                    dsptr->arcs[i][j] = -1;
+                }
+            }
+        }
+    }
+
+    return dsptr;
+}
+
+static int P7m_arc_value(int i, int j)
+{
+	if (i == j) return 0;
+	int d = (j - i + 7) % 7;
+	if (d == 1 || d == 2 || d == 4) {
+		return 1;
+	}
+	return -1;
+}
+
+static bool P7m_match_backtrack(dataSet* dsptr, int depth, int* map, bool* used)
+{
+	if (depth == 6) {
+		return true;
+	}
+
+	for (int v = 0; v < 6; v++) {
+		if (used[v]) {
+			continue;
+		}
+
+		bool ok = true;
+		for (int i = 0; i < depth; i++) {
+			int expected = P7m_arc_value(i, depth);
+			int actual = dsptr->arcs[map[i]][v];
+			if (actual != expected) {
+				ok = false;
+				break;
+			}
+		}
+
+		if (!ok) {
+			continue;
+		}
+
+		map[depth] = v;
+		used[v] = true;
+		if (P7m_match_backtrack(dsptr, depth + 1, map, used)) {
+			return true;
+		}
+		used[v] = false;
+	}
+
+	return false;
+}
+
+bool is_P7m_tournament(dataSet* dsptr)
+{
+	if (dsptr == NULL || dsptr->n != 6 || dsptr->arcs == NULL) {
+		return false;
+	}
+
+	int map[6];
+	bool used[6] = {false, false, false, false, false, false};
+	return P7m_match_backtrack(dsptr, 0, map, used);
+}
+
 bool is_heavy_arc(dataSet* dsptr, int u, int v){
 	int n = dsptr->n;
 	if (u == v) return false;
@@ -856,17 +1559,503 @@ bool is_heavy_arc(dataSet* dsptr, int u, int v){
 }
 
 bool is_H2(dataSet* dsptr, int u, int v, int a, int b, int c){
-	if(is_directed_triangle(dsptr,u,v,a)&&is_directed_triangle(dsptr,u,v,b)&&is_directed_triangle(dsptr,u,v,c)){
+	if(is_directed_triangle(dsptr,u,v,a)&&is_directed_triangle(dsptr,u,v,b)&&is_directed_triangle(dsptr,u,v,c)&&is_directed_triangle(dsptr,a,b,c)){
 		return true;
 	}
 	return false;
 }
 
-dataSet* create_2X_light_tournament(int n, char* file_name){
+static bool isomorphic_backtrack(dataSet* dsptr1, dataSet* dsptr2, int* map1to2, bool* used2, int* outdeg1, int* outdeg2, int* tri1, int* tri2, int mapped_count)
+{
+	int n = dsptr1->n;
+	if (mapped_count == n) {
+		return true;
+	}
+
+	int best_u = -1;
+	int best_count = n + 1;
+	for (int u = 0; u < n; u++) {
+		if (map1to2[u] != -1) {
+			continue;
+		}
+
+		int count = 0;
+		for (int v = 0; v < n; v++) {
+			if (used2[v]) {
+				continue;
+			}
+			if (outdeg1[u] != outdeg2[v] || tri1[u] != tri2[v]) {
+				continue;
+			}
+
+			bool ok = true;
+			for (int u2 = 0; u2 < n; u2++) {
+				if (map1to2[u2] == -1) {
+					continue;
+				}
+				int v2 = map1to2[u2];
+				if (dsptr1->arcs[u][u2] != dsptr2->arcs[v][v2]) {
+					ok = false;
+					break;
+				}
+				if (dsptr1->arcs[u2][u] != dsptr2->arcs[v2][v]) {
+					ok = false;
+					break;
+				}
+			}
+			if (ok) {
+				count++;
+			}
+		}
+
+		if (count == 0) {
+			return false;
+		}
+		if (count < best_count) {
+			best_count = count;
+			best_u = u;
+		}
+	}
+
+	if (best_u == -1) {
+		return false;
+	}
+
+	for (int v = 0; v < n; v++) {
+		if (used2[v]) {
+			continue;
+		}
+		if (outdeg1[best_u] != outdeg2[v] || tri1[best_u] != tri2[v]) {
+			continue;
+		}
+
+		bool ok = true;
+		for (int u2 = 0; u2 < n; u2++) {
+			if (map1to2[u2] == -1) {
+				continue;
+			}
+			int v2 = map1to2[u2];
+			if (dsptr1->arcs[best_u][u2] != dsptr2->arcs[v][v2]) {
+				ok = false;
+				break;
+			}
+			if (dsptr1->arcs[u2][best_u] != dsptr2->arcs[v2][v]) {
+				ok = false;
+				break;
+			}
+		}
+		if (!ok) {
+			continue;
+		}
+
+		map1to2[best_u] = v;
+		used2[v] = true;
+		if (isomorphic_backtrack(dsptr1, dsptr2, map1to2, used2, outdeg1, outdeg2, tri1, tri2, mapped_count + 1)) {
+			return true;
+		}
+		used2[v] = false;
+		map1to2[best_u] = -1;
+	}
+
+	return false;
+}
+
+static bool contains_subtournament_candidate_ok(dataSet* host, dataSet* pattern, int* p_to_h, int p, int h)
+{
+	int m = pattern->n;
+	for (int p2 = 0; p2 < m; p2++) {
+		if (p_to_h[p2] == -1) {
+			continue;
+		}
+		int h2 = p_to_h[p2];
+		if (pattern->arcs[p][p2] != host->arcs[h][h2]) {
+			return false;
+		}
+		if (pattern->arcs[p2][p] != host->arcs[h2][h]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool contains_subtournament_backtrack(dataSet* host, dataSet* pattern, int* p_to_h, bool* used_h, int mapped_count)
+{
+	int n = host->n;
+	int m = pattern->n;
+
+	if (mapped_count == m) {
+		return true;
+	}
+
+	int best_p = -1;
+	int best_count = n + 1;
+
+	for (int p = 0; p < m; p++) {
+		if (p_to_h[p] != -1) {
+			continue;
+		}
+
+		int count = 0;
+		for (int h = 0; h < n; h++) {
+			if (used_h[h]) {
+				continue;
+			}
+			if (contains_subtournament_candidate_ok(host, pattern, p_to_h, p, h)) {
+				count++;
+			}
+		}
+
+		if (count == 0) {
+			return false;
+		}
+		if (count < best_count) {
+			best_count = count;
+			best_p = p;
+		}
+	}
+
+	if (best_p == -1) {
+		return false;
+	}
+
+	for (int h = 0; h < n; h++) {
+		if (used_h[h]) {
+			continue;
+		}
+		if (!contains_subtournament_candidate_ok(host, pattern, p_to_h, best_p, h)) {
+			continue;
+		}
+
+		p_to_h[best_p] = h;
+		used_h[h] = true;
+
+		if (contains_subtournament_backtrack(host, pattern, p_to_h, used_h, mapped_count + 1)) {
+			return true;
+		}
+
+		used_h[h] = false;
+		p_to_h[best_p] = -1;
+	}
+
+	return false;
+}
+
+bool is_isomorphic(dataSet* dsptr1, dataSet* dsptr2)
+{
+	if (dsptr1 == NULL || dsptr2 == NULL) {
+		return false;
+	}
+	if (dsptr1->arcs == NULL || dsptr2->arcs == NULL) {
+		return false;
+	}
+	if (dsptr1->n != dsptr2->n) {
+		return false;
+	}
+
+	int n = dsptr1->n;
+	if (n <= 1) {
+		return true;
+	}
+
+	int* outdeg1 = calloc(n, sizeof(int));
+	int* outdeg2 = calloc(n, sizeof(int));
+	int* tri1 = calloc(n, sizeof(int));
+	int* tri2 = calloc(n, sizeof(int));
+	int* map1to2 = malloc(n * sizeof(int));
+	bool* used2 = calloc(n, sizeof(bool));
+
+	if (outdeg1 == NULL || outdeg2 == NULL || tri1 == NULL || tri2 == NULL || map1to2 == NULL || used2 == NULL) {
+		free(outdeg1);
+		free(outdeg2);
+		free(tri1);
+		free(tri2);
+		free(map1to2);
+		free(used2);
+		return false;
+	}
+
+	for (int i = 0; i < n; i++) {
+		map1to2[i] = -1;
+		for (int j = 0; j < n; j++) {
+			if (i == j) {
+				continue;
+			}
+			if (dsptr1->arcs[i][j] == 1) {
+				outdeg1[i]++;
+			}
+			if (dsptr2->arcs[i][j] == 1) {
+				outdeg2[i]++;
+			}
+		}
+	}
+
+	for (int i = 0; i < n - 2; i++) {
+		for (int j = i + 1; j < n - 1; j++) {
+			for (int k = j + 1; k < n; k++) {
+				if (is_directed_triangle(dsptr1, i, j, k)) {
+					tri1[i]++;
+					tri1[j]++;
+					tri1[k]++;
+				}
+				if (is_directed_triangle(dsptr2, i, j, k)) {
+					tri2[i]++;
+					tri2[j]++;
+					tri2[k]++;
+				}
+			}
+		}
+	}
+
+	bool result = isomorphic_backtrack(dsptr1, dsptr2, map1to2, used2, outdeg1, outdeg2, tri1, tri2, 0);
+
+	free(outdeg1);
+	free(outdeg2);
+	free(tri1);
+	free(tri2);
+	free(map1to2);
+	free(used2);
+
+	return result;
+}
+
+bool contains_subtournament(dataSet* host, dataSet* pattern)
+{
+	if (host == NULL || pattern == NULL) {
+		return false;
+	}
+	if (host->arcs == NULL || pattern->arcs == NULL) {
+		return false;
+	}
+
+	int n = host->n;
+	int m = pattern->n;
+	if (m < 0 || n < 0) {
+		return false;
+	}
+	if (m == 0) {
+		return true;
+	}
+	if (m > n) {
+		return false;
+	}
+
+	int* p_to_h = malloc(m * sizeof(int));
+	bool* used_h = calloc(n, sizeof(bool));
+	if (p_to_h == NULL || used_h == NULL) {
+		free(p_to_h);
+		free(used_h);
+		return false;
+	}
+
+	for (int i = 0; i < m; i++) {
+		p_to_h[i] = -1;
+	}
+
+	bool result = contains_subtournament_backtrack(host, pattern, p_to_h, used_h, 0);
+
+	free(p_to_h);
+	free(used_h);
+	return result;
+}
+
+
+int calculate_determinant_3x3_matrix(int** matrix){
+	int d = 0;
+	d+= 1*matrix[0][0]*(matrix[1][1]*matrix[2][2] - matrix[2][1]*matrix[1][2]);
+	d+= -1*matrix[1][0]*(matrix[0][1]*matrix[2][2] - matrix[2][1]*matrix[0][2]);
+	d+= 1*matrix[2][0]*(matrix[0][1]*matrix[1][2] - matrix[1][1]*matrix[0][2]);
+	return d;
+}
+
+bool is_TU_matrix(int** matrix, int rows, int cols)
+{
+	if (matrix == NULL || rows < 0 || cols < 0) {
+		return false;
+	}
+
+	if (rows < 3 || cols < 3) {
+		return true;
+	}
+
+	int** sub = malloc(3 * sizeof(int*));
+	if (sub == NULL) {
+		return false;
+	}
+	for (int i = 0; i < 3; i++) {
+		sub[i] = malloc(3 * sizeof(int));
+		if (sub[i] == NULL) {
+			for (int r = 0; r < i; r++) {
+				free(sub[r]);
+			}
+			free(sub);
+			return false;
+		}
+	}
+
+	for (int r1 = 0; r1 < rows - 2; r1++) {
+		for (int r2 = r1 + 1; r2 < rows - 1; r2++) {
+			for (int r3 = r2 + 1; r3 < rows; r3++) {
+				for (int c1 = 0; c1 < cols - 2; c1++) {
+					for (int c2 = c1 + 1; c2 < cols - 1; c2++) {
+						for (int c3 = c2 + 1; c3 < cols; c3++) {
+							sub[0][0] = matrix[r1][c1];
+							sub[0][1] = matrix[r1][c2];
+							sub[0][2] = matrix[r1][c3];
+
+							sub[1][0] = matrix[r2][c1];
+							sub[1][1] = matrix[r2][c2];
+							sub[1][2] = matrix[r2][c3];
+
+							sub[2][0] = matrix[r3][c1];
+							sub[2][1] = matrix[r3][c2];
+							sub[2][2] = matrix[r3][c3];
+
+							int d = calculate_determinant_3x3_matrix(sub);
+							if (d != -1 && d != 0 && d != 1) {
+								for (int r = 0; r < 3; r++) {
+									free(sub[r]);
+								}
+								free(sub);
+								return false;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for (int r = 0; r < 3; r++) {
+		free(sub[r]);
+	}
+	free(sub);
+	return true;
+}
+
+dataSet* create_2X_light_tournament_with_random(int n, char* file_name){
 	dataSet* dsptr = create_2X_tournament(n,file_name);
 	while(!(is_light_tournament(dsptr))){
 		free(dsptr);
 		dsptr = create_2X_tournament(n,file_name);
+	}
+
+	return dsptr;
+}
+
+dataSet* create_2X_light_tournament_with_LP(int n, char* file_name)
+{
+	dataSet* dsptr = create_2X_tournament(n,file_name);
+	if (dsptr == NULL) {
+		return NULL;
+	}
+
+	
+
+	while (!is_light_tournament(dsptr) && dsptr->n > 1) {
+		GUROBI_MIP_solution* solve = solve_tournament_H2_GUROBI(dsptr);
+		if (solve == NULL || solve->sol == NULL) {
+			break;
+		}
+
+		int old_n = dsptr->n;
+		double max_value = solve->sol[0];
+		for (int i = 1; i < old_n; i++) {
+			if (solve->sol[i] > max_value) {
+				max_value = solve->sol[i];
+			}
+		}
+
+		if (max_value <= 1e-9) {
+			break;
+		}
+
+		int* removed = malloc(old_n * sizeof(int));
+		if (removed == NULL) {
+			break;
+		}
+
+		int removed_count = 0;
+		for (int i = 0; i < old_n; i++) {
+			if (fabs(solve->sol[i] - max_value) < 1e-6) {
+				removed[removed_count++] = i;
+			}
+		}
+
+		if (removed_count == 0) {
+			free(removed);
+			break;
+		}
+
+		if (removed_count >= old_n) {
+			removed[0] = old_n - 1;
+			removed_count = 1;
+		}
+
+		dataSet* reduced = create_subgraph_with_removed_vertices(dsptr, removed, removed_count, file_name);
+		free(removed);
+		if (reduced == NULL) {
+			break;
+		}
+		dsptr = reduced;
+	}
+
+	return dsptr;
+}
+
+dataSet* transform_2X_light_tournament_with_LP(int n, char* file_name, dataSet* dsptr)
+{
+	if (dsptr == NULL) {
+		return NULL;
+	}
+
+	
+
+	while (!is_light_tournament(dsptr) && dsptr->n > 1) {
+		GUROBI_MIP_solution* solve = solve_tournament_H2_GUROBI(dsptr);
+		if (solve == NULL || solve->sol == NULL) {
+			break;
+		}
+
+		int old_n = dsptr->n;
+		double max_value = solve->sol[0];
+		for (int i = 1; i < old_n; i++) {
+			if (solve->sol[i] > max_value) {
+				max_value = solve->sol[i];
+			}
+		}
+
+		if (max_value <= 1e-9) {
+			break;
+		}
+
+		int* removed = malloc(old_n * sizeof(int));
+		if (removed == NULL) {
+			break;
+		}
+
+		int removed_count = 0;
+		for (int i = 0; i < old_n; i++) {
+			if (fabs(solve->sol[i] - max_value) < 1e-6) {
+				removed[removed_count++] = i;
+			}
+		}
+
+		if (removed_count == 0) {
+			free(removed);
+			break;
+		}
+
+		if (removed_count >= old_n) {
+			removed[0] = old_n - 1;
+			removed_count = 1;
+		}
+
+		dataSet* reduced = create_subgraph_with_removed_vertices(dsptr, removed, removed_count, file_name);
+		free(removed);
+		if (reduced == NULL) {
+			break;
+		}
+		dsptr = reduced;
 	}
 
 	return dsptr;
@@ -908,6 +2097,7 @@ int* greedy_coloring_tournament(dataSet* dsptr)
 
 	return coloring;
 }
+
 
 
 int solve_tournament_FVS_CPLEX(dataSet* dsptr)
@@ -1460,7 +2650,127 @@ int solve_3_uniform_hypergraph_2_coloring_CPLEX(hyperDataSet* dsptr)
 	return rval;
 }
 
-GUROBI_MIP_solution* solve_tournament_FVS_GUROBI(dataSet* dsptr)
+GUROBI_MIP_solution* solve_tournament_FVS_GUROBI_IP(dataSet* dsptr)
+{
+	int n = dsptr->n;
+
+	GRBenv *env = NULL;
+  	GRBmodel *model = NULL;
+	GUROBI_MIP_solution* sol_ptr = malloc(sizeof(GUROBI_MIP_solution));
+  	int error = 0;
+  	double* sol = malloc(n*sizeof(double));
+  	int* ind = malloc(3*sizeof(int));
+  	double* val = malloc(3*sizeof(double));
+  	double* obj = malloc(n*sizeof(double));
+  	char* vtype = malloc(n*sizeof(int));
+	char* const_name = (char*)malloc(sizeof(char)*1024);
+  	int optimstatus;
+  	double objval;
+
+	sol_ptr->objval = objval;
+	sol_ptr->sol = sol;
+	sol_ptr->is_2X = NULL;
+
+
+
+	 /* Create environment */
+	error = GRBemptyenv(&env);
+	if (error) goto QUIT;
+
+	error = GRBsetstrparam(env, "LogFile", "tournament_FVS_GRB.log");
+	if (error) goto QUIT;
+
+	error = GRBstartenv(env);
+	if (error) goto QUIT;
+
+	/* Create an empty model */
+	error = GRBnewmodel(env, &model, "tournament_FVS_GRB", 0, NULL, NULL, NULL, NULL, NULL);
+	if (error) goto QUIT;
+
+	/* Add variables */
+	for(int i=0; i<n; i++){
+		obj[i] = 1;
+		vtype[i] = GRB_BINARY;
+	}
+	error = GRBaddvars(model, n, 0, NULL, NULL, NULL, obj, NULL, NULL, vtype,
+						NULL);
+	if (error) goto QUIT;
+
+	/* Change objective sense to minimization */
+	error = GRBsetintattr(model, GRB_INT_ATTR_MODELSENSE, GRB_MINIMIZE);
+	if (error) goto QUIT;
+
+	/* Constraint */
+
+	for (int i = 0; i < n - 2; i++) {
+		for (int j = i + 1; j < n - 1; j++) {
+			for (int k = j + 1; k < n; k++) {
+				if (!is_directed_triangle(dsptr, i, j, k)) {
+					continue;
+				}
+				snprintf(const_name,
+						 1024,
+						 "constraint_%d_%d_%d",
+						 i,
+						 j,
+						 k);
+
+				ind[0] = i; ind[1] = j; ind[2] = k;
+				val[0] = 1; val[1] = 1; val[2] = 1;
+				error = GRBaddconstr(model, 3, ind, val, GRB_GREATER_EQUAL, 1.0, const_name);
+				if (error) goto QUIT;
+			}
+		}
+	}
+
+	/* Optimize model */
+	error = GRBoptimize(model);
+	if (error) goto QUIT;
+
+	/* Write model to 'mip1.lp' */
+	error = GRBwrite(model, "tournament_FVS_GRB.lp");
+	if (error) goto QUIT;
+
+	/* Capture solution information */
+	error = GRBgetintattr(model, GRB_INT_ATTR_STATUS, &optimstatus);
+	if (error) goto QUIT;
+
+	printf("\nOptimization complete\n");
+	if (optimstatus == GRB_OPTIMAL) {
+		error = GRBgetdblattr(model, GRB_DBL_ATTR_OBJVAL, &objval);
+		if (error) goto QUIT;
+
+		error = GRBgetdblattrarray(model, GRB_DBL_ATTR_X, 0, n, sol);
+		if (error) goto QUIT;
+
+		printf("Optimal objective: %.4e\n", objval);
+		for(int i=0; i<n; i++){
+			printf("  x%d=%.6f,", i,  sol[i]);
+		}
+	} else if (optimstatus == GRB_INF_OR_UNBD || optimstatus == GRB_INFEASIBLE) {
+		printf("Model is infeasible or unbounded\n");
+	} else {
+		printf("Optimization was stopped early\n");
+	}
+
+	QUIT:
+
+	/* Error reporting */
+	if (error) {
+		printf("ERROR: %s\n", GRBgeterrormsg(env));
+		exit(1);
+	}
+
+	/* Free model */
+	GRBfreemodel(model);
+
+	/* Free environment */
+	GRBfreeenv(env);
+
+	return sol_ptr;
+}
+
+GUROBI_MIP_solution* solve_tournament_FVS_GUROBI_LP(dataSet* dsptr)
 {
 	int n = dsptr->n;
 
@@ -1555,7 +2865,7 @@ GUROBI_MIP_solution* solve_tournament_FVS_GUROBI(dataSet* dsptr)
 
 		printf("Optimal objective: %.4e\n", objval);
 		for(int i=0; i<n; i++){
-			printf("  x%d=%.0f,", i,  sol[i]);
+			printf("  x%d=%.6f,", i,  sol[i]);
 		}
 	} else if (optimstatus == GRB_INF_OR_UNBD || optimstatus == GRB_INFEASIBLE) {
 		printf("Model is infeasible or unbounded\n");
@@ -1580,6 +2890,137 @@ GUROBI_MIP_solution* solve_tournament_FVS_GUROBI(dataSet* dsptr)
 	return sol_ptr;
 }
 
+
+GUROBI_MIP_solution* solve_tournament_FVS_with_discrept_GUROBI(dataSet* dsptr)
+{
+	int n = dsptr->n;
+
+	GRBenv *env = NULL;
+  	GRBmodel *model = NULL;
+	GUROBI_MIP_solution* sol_ptr = malloc(sizeof(GUROBI_MIP_solution));
+  	int error = 0;
+  	double* sol = malloc(n*sizeof(double));
+  	int* ind = malloc(3*sizeof(int));
+  	double* val = malloc(3*sizeof(double));
+  	double* obj = malloc(n*sizeof(double));
+  	char* vtype = malloc(n*sizeof(int));
+	char* const_name = (char*)malloc(sizeof(char)*1024);
+  	int optimstatus;
+  	double objval;
+
+	sol_ptr->objval = objval;
+	sol_ptr->sol = sol;
+	sol_ptr->is_2X = NULL;
+
+
+
+	 /* Create environment */
+	error = GRBemptyenv(&env);
+	if (error) goto QUIT;
+
+	error = GRBsetstrparam(env, "LogFile", "tournament_FVS_GRB.log");
+	if (error) goto QUIT;
+
+	error = GRBstartenv(env);
+	if (error) goto QUIT;
+
+	/* Create an empty model */
+	error = GRBnewmodel(env, &model, "tournament_FVS_GRB", 0, NULL, NULL, NULL, NULL, NULL);
+	if (error) goto QUIT;
+
+	/* Add variables */
+	for(int i=0; i<n; i++){
+		double s = (double) (rand()%2);
+
+		if(s==0.0)
+		{
+			s-=1.0;
+		}
+
+		double epsilon = 1.0/ (double) rand();
+		
+
+		
+		obj[i] = 1.0 + s*epsilon;
+		vtype[i] = GRB_CONTINUOUS;
+	}
+	error = GRBaddvars(model, n, 0, NULL, NULL, NULL, obj, NULL, NULL, vtype,
+						NULL);
+	if (error) goto QUIT;
+
+	/* Change objective sense to minimization */
+	error = GRBsetintattr(model, GRB_INT_ATTR_MODELSENSE, GRB_MINIMIZE);
+	if (error) goto QUIT;
+
+	/* Constraint */
+
+	for (int i = 0; i < n - 2; i++) {
+		for (int j = i + 1; j < n - 1; j++) {
+			for (int k = j + 1; k < n; k++) {
+				if (!is_directed_triangle(dsptr, i, j, k)) {
+					continue;
+				}
+				snprintf(const_name,
+						 1024,
+						 "constraint_%d_%d_%d",
+						 i,
+						 j,
+						 k);
+
+				ind[0] = i; ind[1] = j; ind[2] = k;
+				val[0] = 1; val[1] = 1; val[2] = 1;
+				error = GRBaddconstr(model, 3, ind, val, GRB_GREATER_EQUAL, 1.0, const_name);
+				if (error) goto QUIT;
+			}
+		}
+	}
+
+	/* Optimize model */
+	error = GRBoptimize(model);
+	if (error) goto QUIT;
+
+	/* Write model to 'mip1.lp' */
+	error = GRBwrite(model, "tournament_FVS_GRB.lp");
+	if (error) goto QUIT;
+
+	/* Capture solution information */
+	error = GRBgetintattr(model, GRB_INT_ATTR_STATUS, &optimstatus);
+	if (error) goto QUIT;
+
+	printf("\nOptimization complete\n");
+	if (optimstatus == GRB_OPTIMAL) {
+		error = GRBgetdblattr(model, GRB_DBL_ATTR_OBJVAL, &objval);
+		if (error) goto QUIT;
+
+		error = GRBgetdblattrarray(model, GRB_DBL_ATTR_X, 0, n, sol);
+		if (error) goto QUIT;
+
+		printf("Optimal objective: %.4e\n", objval);
+		for(int i=0; i<n; i++){
+			printf("  x%d=%.6f,", i,  sol[i]);
+		}
+	} else if (optimstatus == GRB_INF_OR_UNBD || optimstatus == GRB_INFEASIBLE) {
+		printf("Model is infeasible or unbounded\n");
+	} else {
+		printf("Optimization was stopped early\n");
+	}
+
+	QUIT:
+
+	/* Error reporting */
+	if (error) {
+		printf("ERROR: %s\n", GRBgeterrormsg(env));
+		exit(1);
+	}
+
+	/* Free model */
+	GRBfreemodel(model);
+
+	/* Free environment */
+	GRBfreeenv(env);
+
+	return sol_ptr;
+}
 
 GUROBI_MIP_solution* solve_tournament_H2_GUROBI(dataSet* dsptr)
 {
@@ -1632,8 +3073,9 @@ GUROBI_MIP_solution* solve_tournament_H2_GUROBI(dataSet* dsptr)
 	if (error) goto QUIT;
 
 	/* Constraint */
-	for(int u = 0; u<n-4; ){
-		for(int v = u+1; v<n-3;v++){	
+	for (int u = 0; u < n; u++) {
+		for (int v = 0; v < n; v++) {
+			if (u == v) continue;
 			for (int a = 0; a < n - 2; a++) {
 				if (a == u || a == v) continue;
 				for (int b = a + 1; b < n - 1; b++) {
@@ -1651,8 +3093,8 @@ GUROBI_MIP_solution* solve_tournament_H2_GUROBI(dataSet* dsptr)
 							u,v,a,b,c);
 
 							ind[0] = u; ind[1] = v; ind[2] = a; ind[3] = b; ind[4] = c;
-							val[0] = 1; val[1] = 1; val[2] = 1;
-							error = GRBaddconstr(model, 3, ind, val, GRB_GREATER_EQUAL, 1.0, const_name);
+							val[0] = 1; val[1] = 1; val[2] = 1; val[3] = 1; val[4] = 1;
+							error = GRBaddconstr(model, 5, ind, val, GRB_GREATER_EQUAL, 1.0, const_name);
 							if (error) goto QUIT;
 						}
 
@@ -1710,9 +3152,29 @@ GUROBI_MIP_solution* solve_tournament_H2_GUROBI(dataSet* dsptr)
 	return sol_ptr;
 }
 
-
 GUROBI_MIP_solution* solve_tournament_2_coloring_GUROBI(dataSet* dsptr)
 {
+	printf("\nTournament arcs matrix (n=%d):\n", dsptr->n);
+	for (int i = 0; i < dsptr->n; i++) {
+		for (int j = 0; j < dsptr->n; j++) {
+			printf("%2d ", dsptr->arcs[i][j]);
+		}
+		printf("\n");
+	}
+
+	printf("\nDirected triangles (3-cycles):\n");
+	int triangle_count = 0;
+	for (int i = 0; i < dsptr->n - 2; i++) {
+		for (int j = i + 1; j < dsptr->n - 1; j++) {
+			for (int k = j + 1; k < dsptr->n; k++) {
+				if (is_directed_triangle(dsptr, i, j, k)) {
+					printf("  (%d, %d, %d)\n", i, j, k);
+					triangle_count++;
+				}
+			}
+		}
+	}
+	printf("Total directed triangles: %d\n\n", triangle_count);
 	int n = dsptr->n;
 
 	GRBenv *env = NULL;
@@ -1732,7 +3194,6 @@ GUROBI_MIP_solution* solve_tournament_2_coloring_GUROBI(dataSet* dsptr)
 	sol_ptr->sol = sol;
 	sol_ptr->is_2X = true;
 
-	 /* Create environment */
 	error = GRBemptyenv(&env);
 	if (error) goto QUIT;
 
@@ -1749,7 +3210,7 @@ GUROBI_MIP_solution* solve_tournament_2_coloring_GUROBI(dataSet* dsptr)
 	/* Add variables */
 	for(int i=0; i<n; i++){
 		obj[i] = 1;
-		vtype[i] = GRB_INTEGER;
+		vtype[i] = GRB_CONTINUOUS;
 	}
 	error = GRBaddvars(model, n, 0, NULL, NULL, NULL, obj, NULL, NULL, vtype,
 						NULL);
@@ -1850,6 +3311,21 @@ GUROBI_MIP_solution* solve_tournament_2_coloring_GUROBI(dataSet* dsptr)
 	GRBfreeenv(env);
 
 	return sol_ptr;
+}
+
+bool is_integral_solution_FVS(dataSet* dsptr, GUROBI_MIP_solution* s)
+{
+	if (dsptr == NULL || s == NULL || s->sol == NULL) {
+		return false;
+	}
+
+	for (int i = 0; i < dsptr->n; i++) {
+		double x = s->sol[i];
+		if (fabs(x) > 1e-6 && fabs(x - 1.0) > 1e-6) {
+			return false;
+		}
+	}
+	return true;
 }
 
 void clean_dataSet(dataSet* dsptr){
