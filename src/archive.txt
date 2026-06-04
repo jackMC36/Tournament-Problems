@@ -1,0 +1,224 @@
+dataSet** partition_new_2X_heavy_tournament(int n, char* file_name_1, char* file_name_2)
+{
+	dataSet** partition = malloc(3*sizeof(dataSet*));
+
+	dataSet* initial = create_2X_tournament(n,file_name_1);
+	if (initial == NULL) return NULL;
+
+	partition[1] = malloc(sizeof(dataSet));
+	if(partition[1] == NULL) return NULL;
+
+	partition[2] = malloc(sizeof(dataSet));
+	if(partition[2] == NULL) return NULL;
+
+	int* heavy_vertex = calloc(n, sizeof(int));
+	if (heavy_vertex == NULL) return NULL;
+
+	for (int u = 0; u < n; u++) {
+		for (int v = 0; v < n; v++) {
+			if (u == v) continue;
+			if (is_heavy_arc(initial, u, v)) {
+				if (heavy_vertex[u] == 0) {
+					if(heavy_vertex[v]==2){
+						heavy_vertex[u] = 1;
+					}
+					else{
+						heavy_vertex[u] = 2;
+					}
+				}
+				if (heavy_vertex[v] == 0) {
+					if(heavy_vertex[u]==2){
+						heavy_vertex[v] = 2;
+					}
+					else{
+						heavy_vertex[v] = 1;
+					}
+				}
+			}
+		}
+	}
+
+	int* new_n = calloc(3,sizeof(int));
+	int* heavy_vertex_count = calloc(3,sizeof(int));
+
+	int** old_to_new = malloc(3*sizeof(int*));
+	int** new_to_old = malloc(3*sizeof(int*));
+
+	for(int p=1; p<=2;p++){
+		old_to_new[p] = malloc(n*sizeof(int));
+		new_to_old[p] = malloc(n*sizeof(int));
+
+		if (old_to_new[p] == NULL || new_to_old[p] == NULL) return NULL;
+
+		for (int i = 0; i < n; i++) {
+			old_to_new[p][i] = -1;
+		}
+
+		for(int i=0;i<n;i++){
+			int exclude_val = (p == 1) ? 2 : 1;
+			if (heavy_vertex[i] == exclude_val) {
+				continue;
+			}
+			old_to_new[p][i] = new_n[p];
+			new_to_old[p][new_n[p]] = i;
+			new_n[p]++;
+		}
+
+		partition[p]->n = new_n[p];
+		partition[p]->vertices = calloc(new_n[p],sizeof(int));
+		partition[p]->arcs = malloc(new_n[p]*sizeof(int*));
+		for(int i = 0 ; i < new_n[p] ; i++)
+			partition[p]->arcs[i] = calloc(new_n[p],sizeof(int));
+
+		for(int i = 0; i<new_n[p];i++){
+			partition[p]->vertices[i] = i;
+		}
+
+		for(int i = 0; i<new_n[p]; i++){
+			for(int j = 0; j<new_n[p]; j++){
+				partition[p]->arcs[i][j] = initial->arcs[new_to_old[p][i]][new_to_old[p][j]];
+			}
+		}
+		switch (p)
+		{
+		case 1:
+			FILE* fptr1 = fopen(file_name_1, "w");
+
+			if (fptr1 == NULL) {
+			free(old_to_new[p]);
+			free(new_to_old[p]);
+			free(heavy_vertex);
+			return NULL;
+			}
+
+			fprintf(fptr1, "%d\n", new_n[p]);
+			for(int i = 0; i<new_n[p]; i++){
+				for(int j = 0; j<new_n[p]; j++){
+					fprintf(fptr1, "%d", partition[p]->arcs[i][j]);
+					if(j!=new_n[p]-1){
+						fprintf(fptr1,",");
+					}
+				}
+				fprintf(fptr1,"\n");
+			}
+			fclose(fptr1);
+
+			free(old_to_new[p]);
+			free(new_to_old[p]);
+			break;
+
+		case 2:
+			FILE* fptr2 = fopen(file_name_2, "w");
+
+			if (fptr2 == NULL) {
+			free(old_to_new[p]);
+			free(new_to_old[p]);
+			free(heavy_vertex);
+			return NULL;
+			}
+
+			fprintf(fptr2, "%d\n", new_n[p]);
+			for(int i = 0; i<new_n[p]; i++){
+				for(int j = 0; j<new_n[p]; j++){
+					fprintf(fptr2, "%d", partition[p]->arcs[i][j]);
+					if(j!=new_n[p]-1){
+						fprintf(fptr2,",");
+					}
+				}
+				fprintf(fptr2,"\n");
+			}
+			fclose(fptr2);
+
+			free(old_to_new[p]);
+			free(new_to_old[p]);
+		}
+	}
+	
+	free(heavy_vertex);
+		
+	return partition;
+}
+
+	hyperDataSet* hyperData = create_3_uniform_hypergraph_partition_method(15,"test.csv");
+	if (hyperData == NULL) {
+		fprintf(stderr, "Hypergraph creation failed.\n");
+		return 1;
+	}
+
+	dataSet* converted_data = transform_3_uniform_hypergraph_to_tournament(hyperData,"tranformation_test.csv");
+	if (converted_data == NULL) {
+		fprintf(stderr, "Tournament transformation failed (possibly no hyperedges generated).\n");
+		return 1;
+	}
+
+
+
+	if (solve_3_uniform_hypergraph_2_coloring(hyperData) != 0) {
+		fprintf(stderr, "Hypergraph solve failed.\n");
+		return 1;
+	}
+
+	if(is_light_tournament(converted_data)){
+		printf("The converted tournament is light.");
+	}
+	else{
+		printf("The converted tournament is heavy. Splitting the tournament along the heavy arcs:\n");
+		dataSet** partition = partition_heavy_tournament(converted_data,"partition1.csv","partition2.csv");
+		if (partition == NULL || partition[1] == NULL || partition[2] == NULL) {
+			fprintf(stderr, "Partitioning failed.\n");
+			return 1;
+		}
+
+		if (solve_tournament_FVS(partition[1]) != 0) {
+			fprintf(stderr, "Partition 1 solve failed.\n");
+			return 1;
+		}
+
+		if (solve_tournament_FVS(partition[2]) != 0) {
+			fprintf(stderr, "Partition 2 solve failed.\n");
+			return 1;
+		}
+
+		return 0;
+	}
+
+
+
+	
+	/* dataSet* data = create_random_tournament(15,"test_random.csv");
+	if(is_light_tournament(data)){
+		printf("The tournament is light.");
+	}
+	else{
+		printf("The tournament is heavy.");
+		dataSet** partition = partition_heavy_tournament(data,"partition1.csv","partition2.csv");
+		if (partition == NULL || partition[1] == NULL || partition[2] == NULL) {
+			fprintf(stderr, "Partitioning failed.\n");
+			return 1;
+		}
+
+
+		if (solve_tournament_2_coloring(partition[1]) != 0) {
+			fprintf(stderr, "Partition 1 solve failed.\n");
+			return 1;
+		}
+
+		if (solve_tournament_2_coloring(partition[2]) != 0) {
+			fprintf(stderr, "Partition 2 solve failed.\n");
+			return 1;
+		}
+
+		if(is_light_tournament(partition[1])){
+			printf("P1 is light.");
+		}
+		else{
+			printf("P1 is heavy.");
+		}
+
+		if(is_light_tournament(partition[2])){
+			printf("P2 is light.");
+		}
+		else{
+			printf("P2 is heavy.");
+		}
+	}*/

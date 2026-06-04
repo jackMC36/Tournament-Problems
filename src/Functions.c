@@ -47,6 +47,52 @@ void affichage_matrice_tournament(dataSet* dsptr)
 
 }
 
+int** transform_Tournament_to_matrix(dataSet* dsptr)
+{
+	int m = directed_triangles_count(dsptr);
+	int n = dsptr->n;
+
+	int** matrix = malloc(m*sizeof(int*));
+	for(int i=0;i<m;i++){
+		matrix = calloc(n,sizeof(int));
+	}
+
+	int count = 0;
+
+	for(int i=0;i<n-2;i++){
+		for(int j=i+1;j<n-1;j++){
+			for(int k=j+1;k<n;k++){
+				if(is_directed_triangle(dsptr,i,j,k)){
+					matrix[count][i] = 1;
+					matrix[count][j] = 1;
+					matrix[count][k] = 1;
+					count +=1;
+				}
+			}
+		}
+	}
+
+	return matrix;
+}
+
+void affichage_matrice_carre(int** M, int n)
+{
+	printf("\nTournament T on %d vertices",n);
+	printf("\nMatrice d'adjacence:\n");
+	for(int i=0;i<n;i++){
+		printf("|");
+		for(int j=0;j<n;j++){
+			printf("%d", M[i][j]);
+			if(j<n-1){
+				printf(",");
+			}
+		}
+		printf("|\n");
+	}
+
+}
+
+
 int* int_vers_Binaire(int code){
     int* binaire = malloc(8 * sizeof(int));
     for (int i = 7; i >= 0; i--) {
@@ -388,100 +434,215 @@ bool are_equal(hyperEdge e1, hyperEdge e2)
 
 }
 
-dataSet** create_all_tournaments_of_size_k(int k){
-	int edge_count = k * (k - 1) / 2;
+static void free_matrix_3x3(int** matrix)
+{
+	if (matrix == NULL) {
+		return;
+	}
 
-	size_t number_t = (size_t)1 << edge_count;
-	dataSet** list_dsptr = calloc(number_t + 1, sizeof(dataSet*));
-	if (list_dsptr == NULL) {
+	for (int i = 0; i < 3; i++) {
+		free(matrix[i]);
+	}
+	free(matrix);
+}
+
+static bool isomorphic_3x3_matrices(int** lhs, int** rhs)
+{
+	static const int permutations[6][3] = {
+		{0, 1, 2},
+		{0, 2, 1},
+		{1, 0, 2},
+		{1, 2, 0},
+		{2, 0, 1},
+		{2, 1, 0}
+	};
+
+	if (lhs == NULL || rhs == NULL) {
+		return false;
+	}
+
+	for (int rp = 0; rp < 6; rp++) {
+		for (int cp = 0; cp < 6; cp++) {
+			bool same = true;
+			for (int i = 0; i < 3 && same; i++) {
+				for (int j = 0; j < 3; j++) {
+					if (lhs[i][j] != rhs[permutations[rp][i]][permutations[cp][j]]) {
+						same = false;
+						break;
+					}
+				}
+			}
+			if (same) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+int*** generate_all_matrices_on_3X3(){
+	int*** list = calloc(512, sizeof(int**));
+	if (list == NULL) {
 		return NULL;
 	}
 
-	for (size_t mask = 0; mask < number_t; mask++) {
-		dataSet* dsptr = malloc(sizeof(dataSet));
-		if (dsptr == NULL) {
-			for (size_t t = 0; t < mask; t++) {
-				if (list_dsptr[t] == NULL) {
-					continue;
-				}
-				for (int i = 0; i < k; i++) {
-					free(list_dsptr[t]->arcs[i]);
-				}
-				free(list_dsptr[t]->arcs);
-				free(list_dsptr[t]->vertices);
-				free(list_dsptr[t]);
+	int count = 0;
+
+	for (int mask = 0; mask < 512; mask++) {
+		int** matrix = malloc(3 * sizeof(int*));
+		if (matrix == NULL) {
+			for (int prev = 0; prev < count; prev++) {
+				free_matrix_3x3(list[prev]);
 			}
-			free(list_dsptr);
+			free(list);
 			return NULL;
 		}
 
-		dsptr->n = k;
-		dsptr->vertices = calloc(k, sizeof(int));
-		dsptr->arcs = malloc(k * sizeof(int*));
-		if (dsptr->vertices == NULL || dsptr->arcs == NULL) {
-			free(dsptr->vertices);
-			free(dsptr->arcs);
-			free(dsptr);
-			for (size_t t = 0; t < mask; t++) {
-				if (list_dsptr[t] == NULL) {
-					continue;
+		for (int row = 0; row < 3; row++) {
+			matrix[row] = calloc(3, sizeof(int));
+			if (matrix[row] == NULL) {
+				for (int r = 0; r < row; r++) {
+					free(matrix[r]);
 				}
-				for (int i = 0; i < k; i++) {
-					free(list_dsptr[t]->arcs[i]);
+				free(matrix);
+				for (int prev = 0; prev < count; prev++) {
+					free_matrix_3x3(list[prev]);
 				}
-				free(list_dsptr[t]->arcs);
-				free(list_dsptr[t]->vertices);
-				free(list_dsptr[t]);
-			}
-			free(list_dsptr);
-			return NULL;
-		}
-
-		for (int i = 0; i < k; i++) {
-			dsptr->vertices[i] = i;
-			dsptr->arcs[i] = calloc(k, sizeof(int));
-			if (dsptr->arcs[i] == NULL) {
-				for (int r = 0; r < i; r++) {
-					free(dsptr->arcs[r]);
-				}
-				free(dsptr->arcs);
-				free(dsptr->vertices);
-				free(dsptr);
-				for (size_t t = 0; t < mask; t++) {
-					if (list_dsptr[t] == NULL) {
-						continue;
-					}
-					for (int u = 0; u < k; u++) {
-						free(list_dsptr[t]->arcs[u]);
-					}
-					free(list_dsptr[t]->arcs);
-					free(list_dsptr[t]->vertices);
-					free(list_dsptr[t]);
-				}
-				free(list_dsptr);
+				free(list);
 				return NULL;
 			}
 		}
 
-		size_t bit_index = 0;
-		for (int i = 0; i < k; i++) {
-			for (int j = i + 1; j < k; j++) {
-				if ((mask >> bit_index) & 1ULL) {
-					dsptr->arcs[i][j] = 1;
-					dsptr->arcs[j][i] = -1;
-				} else {
-					dsptr->arcs[i][j] = -1;
-					dsptr->arcs[j][i] = 1;
-				}
-				bit_index++;
+		for (int bit = 0; bit < 9; bit++) {
+			int value = (mask >> bit) & 1;
+			matrix[bit / 3][bit % 3] = value;
+		}
+
+		bool duplicate = false;
+		for (int prev = 0; prev < count; prev++) {
+			if (isomorphic_3x3_matrices(matrix, list[prev])) {
+				duplicate = true;
+				break;
 			}
 		}
 
-		list_dsptr[mask] = dsptr;
+		if (duplicate) {
+			free_matrix_3x3(matrix);
+			continue;
+		}
+
+		list[count++] = matrix;
 	}
 
-	list_dsptr[number_t] = NULL;
-	return list_dsptr;
+	list[count] = NULL;
+
+	return list;
+}
+
+static void free_tournament(dataSet* t) {
+	if (t == NULL) return;
+	for (int i = 0; i < t->n; i++) free(t->arcs[i]);
+	free(t->arcs);
+	free(t->vertices);
+	free(t);
+}
+
+static dataSet* alloc_tournament(int n) {
+	dataSet* t = malloc(sizeof(dataSet));
+	if (t == NULL) return NULL;
+	t->n = n;
+	t->vertices = calloc(n, sizeof(int));
+	t->arcs = malloc(n * sizeof(int*));
+	if (t->vertices == NULL || t->arcs == NULL) {
+		free(t->vertices); free(t->arcs); free(t);
+		return NULL;
+	}
+	for (int i = 0; i < n; i++) {
+		t->vertices[i] = i;
+		t->arcs[i] = calloc(n, sizeof(int));
+		if (t->arcs[i] == NULL) {
+			for (int r = 0; r < i; r++) free(t->arcs[r]);
+			free(t->arcs); free(t->vertices); free(t);
+			return NULL;
+		}
+	}
+	return t;
+}
+
+dataSet** create_all_tournaments_of_size_k(int k) {
+	if (k <= 0) {
+		dataSet** empty = calloc(1, sizeof(dataSet*));
+		return empty;
+	}
+
+	dataSet** cur = calloc(2, sizeof(dataSet*));
+	if (cur == NULL) return NULL;
+	cur[0] = alloc_tournament(1);
+	if (cur[0] == NULL) { free(cur); return NULL; }
+	int cur_count = 1;
+
+	for (int sz = 2; sz <= k; sz++) {
+		int n = sz - 1;                        
+		int max_cand = cur_count * (1 << n);   
+		dataSet** nxt = calloc(max_cand + 1, sizeof(dataSet*));
+		if (nxt == NULL) {
+			for (int t = 0; t < cur_count; t++) free_tournament(cur[t]);
+			free(cur);
+			return NULL;
+		}
+		int nxt_count = 0;
+
+		for (int t = 0; t < cur_count; t++) {
+			dataSet* base = cur[t];
+
+			for (int mask = 0; mask < (1 << n); mask++) {
+				dataSet* ext = alloc_tournament(sz);
+				if (ext == NULL) goto oom;
+
+				for (int i = 0; i < n; i++)
+					for (int j = 0; j < n; j++)
+						ext->arcs[i][j] = base->arcs[i][j];
+
+				for (int i = 0; i < n; i++) {
+					if ((mask >> i) & 1) {
+						ext->arcs[n][i] = 1;
+						ext->arcs[i][n] = -1;
+					} else {
+						ext->arcs[i][n] = 1;
+						ext->arcs[n][i] = -1;
+					}
+				}
+
+				bool dup = false;
+				for (int j = 0; j < nxt_count; j++) {
+					if (is_isomorphic(ext, nxt[j])) { dup = true; break; }
+				}
+				if (!dup) {
+					nxt[nxt_count++] = ext;
+				} else {
+					free_tournament(ext);
+				}
+			}
+		}
+
+		for (int t = 0; t < cur_count; t++) free_tournament(cur[t]);
+		free(cur);
+		nxt[nxt_count] = NULL;
+		cur = nxt;
+		cur_count = nxt_count;
+		printf("Non-isomorphic tournaments on %d vertices: %d\n", sz, cur_count);
+		continue;
+
+oom:
+		for (int j = 0; j < nxt_count; j++) free_tournament(nxt[j]);
+		free(nxt);
+		for (int t2 = 0; t2 < cur_count; t2++) free_tournament(cur[t2]);
+		free(cur);
+		return NULL;
+	}
+
+	return cur;
 }
 
 dataSet* create_random_tournament(int n, char* file_name)
@@ -646,6 +807,98 @@ dataSet* create_subgraph_with_removed_vertice(dataSet* initial, int v, char* fil
 	return new_data;
 
 }
+
+dataSet* Delta(dataSet* A, dataSet* B, dataSet* C)
+{
+	dataSet* dsptr = malloc(sizeof(dataSet));
+
+	int n_A = A->n;
+	int n_B = B->n;
+	int n_C = C->n;
+
+	dsptr->n = n_A+n_B+n_C;
+	int n = dsptr->n;
+
+	dsptr->arcs = malloc(n*sizeof(int*));
+	for(int i=0;i<n;i++){
+		dsptr->arcs[i] = malloc(n*sizeof(int));
+	}
+
+	for(int i=0;i<n_A;i++){
+		for(int j=0;j<n_A;j++){
+			dsptr->arcs[i][j] = A->arcs[i][j];
+		}
+	}
+
+	for(int i=n_A;i<n_A+n_B;i++){
+		for(int j=n_A;j<n_A+n_B;j++){
+			dsptr->arcs[i][j] = B->arcs[i-n_A][j-n_A];
+		}
+	}
+
+	for(int i=n_A+n_B;i<n;i++){
+		for(int j=n_A+n_B;j<n;j++){
+			dsptr->arcs[i][j] = C->arcs[i-n_A-n_B][j-n_A-n_B];
+		}
+	}
+
+	for(int i=0;i<n_A;i++){
+		for(int j=n_A;j<n_A+n_B;j++){
+			dsptr->arcs[i][j] = 1;
+			dsptr->arcs[j][i] = -1;
+		}
+	}
+
+	for(int i=0;i<n_A;i++){
+		for(int j=n_A+n_B;j<n;j++){
+			dsptr->arcs[i][j] = -1;
+			dsptr->arcs[j][i] = 1;
+		}
+	}
+
+	for(int i=n_A;i<n_A+n_B;i++){
+		for(int j=n_A+n_B;j<n;j++){
+			dsptr->arcs[i][j] = 1;
+			dsptr->arcs[j][i] = -1;
+		}
+	}
+	return dsptr;
+}
+
+dataSet* create_vertex_tournament()
+{
+	dataSet* vertex = malloc(sizeof(dataSet));
+	vertex->n = 1;
+
+	vertex->arcs = malloc(sizeof(int*));
+	vertex->arcs[0] = malloc(sizeof(int));
+
+	vertex->arcs[0][0] = 0;
+	return vertex;
+}
+
+dataSet* create_k_chromatic_tournament(int k)
+{
+	dataSet* vertex = malloc(sizeof(dataSet));
+	vertex->n = 1;
+
+	vertex->arcs = malloc(sizeof(int*));
+	vertex->arcs[0] = malloc(sizeof(int));
+
+	vertex->arcs[0][0] = 0;
+
+	dataSet* dsptr = vertex;
+
+	if(k==1){
+		return vertex;
+	}
+	while(k!=1){
+		dsptr = Delta(dsptr,dsptr,vertex);
+		k-=1;
+	}
+	return dsptr;
+}
+
 
 static dataSet* create_subgraph_with_removed_vertices(dataSet* initial, int* removed, int removed_count, char* file_name)
 {
@@ -1022,17 +1275,14 @@ dataSet** partition_heavy_tournament(dataSet* initial, char* file_name_1, char* 
 
 bool is_directed_triangle(dataSet* dsptr, int i, int j, int k){
 	int** arcs = dsptr->arcs;
-	/* For a fixed order (i,j,k), a 3-cycle appears in either orientation:
-	 * i->j->k->i gives (+1,+1,+1), and the reverse gives (-1,-1,-1).
-	 */
-	if (arcs[i][j] == arcs[j][k] && arcs[j][k] == arcs[k][i]) {
+	if (arcs[i][j] == arcs[j][k] && arcs[j][k] == arcs[k][i] && arcs[i][j]!=0 ) {
 		return true;
 	}
 	return false;
 
 }
 
-bool directed_triangles_count(dataSet* dsptr){
+int directed_triangles_count(dataSet* dsptr){
 	int n = dsptr->n;
 	int cpt = 0;
 	for(int i=0;i<n;i++){
@@ -1042,7 +1292,7 @@ bool directed_triangles_count(dataSet* dsptr){
 			}
 		}
 	}
-	return cpt/3;
+	return cpt/6;
 }
 
 bool is_light_tournament(dataSet* dsptr){
@@ -1183,6 +1433,63 @@ dataSet* create_T5()
 
 	dsptr->arcs = arcs;
 
+	return dsptr;
+}
+
+dataSet* create_T7()
+{
+	int n = 7;
+	dataSet* dsptr = malloc(sizeof(dataSet));
+	if (!dsptr) return NULL;
+
+	dsptr->n = n;
+	dsptr->vertices = malloc(n * sizeof(int));
+	if (!dsptr->vertices) {
+		free(dsptr);
+		return NULL;
+	}
+
+	for (int i = 0; i < n; i++) {
+		dsptr->vertices[i] = i;
+	}
+
+	int** arcs = malloc(n * sizeof(int*));
+	if (!arcs) {
+		free(dsptr->vertices);
+		free(dsptr);
+		return NULL;
+	}
+
+	for (int i = 0; i < n; i++) {
+		arcs[i] = calloc(n, sizeof(int));
+		if (!arcs[i]) {
+			for (int r = 0; r < i; r++) {
+				free(arcs[r]);
+			}
+			free(arcs);
+			free(dsptr->vertices);
+			free(dsptr);
+			return NULL;
+		}
+	}
+
+	for (int i = 0; i < n; i++) {
+		for (int j = 0; j < n; j++) {
+			if (i == j) {
+				arcs[i][j] = 0;
+				continue;
+			}
+
+			int d = (j - i + n) % n;
+			if (d == 1 || d == 2 || d == 3) {
+				arcs[i][j] = 1;
+			} else {
+				arcs[i][j] = -1;
+			}
+		}
+	}
+
+	dsptr->arcs = arcs;
 	return dsptr;
 }
 
@@ -1740,6 +2047,25 @@ static bool contains_subtournament_backtrack(dataSet* host, dataSet* pattern, in
 	return false;
 }
 
+bool contains_not_TU_substructure(dataSet* dsptr){
+	int n = dsptr->n;
+	for(int a=0;a<n;a++){
+		for(int b=0; b<n; b++){
+			for(int c=0;c<n;c++){
+				for(int d=0; d<n;d++){
+					for(int e=0;e<n;e++){
+						if(is_directed_triangle(dsptr,a,b,d)&&is_directed_triangle(dsptr,b,c,e)&&is_directed_triangle(dsptr,a,c,e)){
+							return true;
+						}
+					}
+				}
+
+			}
+		}
+	}
+	return false;
+}
+
 bool is_isomorphic(dataSet* dsptr1, dataSet* dsptr2)
 {
 	if (dsptr1 == NULL || dsptr2 == NULL) {
@@ -1857,7 +2183,6 @@ bool contains_subtournament(dataSet* host, dataSet* pattern)
 	free(used_h);
 	return result;
 }
-
 
 int calculate_determinant_3x3_matrix(int** matrix){
 	int d = 0;
@@ -2097,8 +2422,6 @@ int* greedy_coloring_tournament(dataSet* dsptr)
 
 	return coloring;
 }
-
-
 
 int solve_tournament_FVS_CPLEX(dataSet* dsptr)
 {
@@ -2889,7 +3212,6 @@ GUROBI_MIP_solution* solve_tournament_FVS_GUROBI_LP(dataSet* dsptr)
 
 	return sol_ptr;
 }
-
 
 GUROBI_MIP_solution* solve_tournament_FVS_with_discrept_GUROBI(dataSet* dsptr)
 {

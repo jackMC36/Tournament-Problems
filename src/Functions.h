@@ -109,6 +109,12 @@ typedef struct  hyperDataSet
 
 int read_instance_tournament(char* file_name,dataSet* dsptr);
 void affichage_matrice_tournament(dataSet* dsptr);
+void affichage_matrice_carre(int** M, int n);
+
+
+int*** generate_all_matrices_on_3X3();
+int** transform_Tournament_to_matrix(dataSet* dsptr);
+int directed_triangles_count(dataSet* dsptr);
 
 hyperDataSet* create_3_uniform_hypergraph_partition_method(int n, char* file_name);
 hyperDataSet* create_3_uniform_hypergraph(int n, char* file_name);
@@ -122,17 +128,20 @@ dataSet* create_2X_light_tournament_with_LP(int n, char* file_name);
 dataSet** partition_new_2X_heavy_tournament(int n, char* file_name_1, char* file_name_2);
 dataSet** partition_heavy_tournament(dataSet* initial, char* file_name_1, char* file_name_2);
 dataSet* create_subgraph_with_removed_vertice(dataSet* initial, int v, char* file_name);
+dataSet* create_k_chromatic_tournament(int k);
+dataSet* Delta(dataSet* A, dataSet* B, dataSet* C);
 dataSet* create_P7();
 dataSet* create_P7m();
 dataSet* create_U5();
 dataSet* create_T5();
+dataSet* create_T7();
 dataSet* create_H2();
 dataSet* create_W5();
 dataSet* create_Delta_122();
+dataSet* create_vertex_tournament();
 dataSet* transform_2X_light_tournament_with_LP(int n, char* file_name, dataSet* dsptr);
 
 int* greedy_coloring_tournament(dataSet* dsptr);
-
 int solve_tournament_FVS_CPLEX(dataSet* dsptr);
 int solve_tournament_2_coloring_CPLEX(dataSet* dsptr);
 int solve_3_uniform_hypergraph_2_coloring_CPLEX(hyperDataSet* dsptr);
@@ -146,6 +155,7 @@ bool is_directed_triangle(dataSet* dsptr, int i, int j, int k);
 bool is_heavy_arc(dataSet* dsptr, int u, int v);
 bool is_H2(dataSet* dsptr, int u, int v, int a, int b, int c);
 bool is_TU_matrix(int** matrix, int rows, int cols);
+bool contains_not_TU_substructure(dataSet* dsptr);
 bool is_light_tournament(dataSet* dsptr);
 bool is_P7m_tournament(dataSet* dsptr);
 bool is_in(hyperEdge e1, hyperEdge* edges, int n);
